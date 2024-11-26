@@ -1,10 +1,15 @@
 ---
-title: "exercicios_series_temporais"
+title: "Lista 1 - Séries Temporais"
+format:
+  pdf:
+    toc: true
+    number-sections: true
+    colorlinks: true
 ---
 
-## Quarto
+## Questão 2
 
-Quarto enables you to weave together content and executable code into a finished document. To learn more about Quarto see <https://quarto.org>.
+
 
 ```{r}
 1 + 1
