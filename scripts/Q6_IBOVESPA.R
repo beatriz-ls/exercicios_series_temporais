@@ -1,7 +1,5 @@
 # bibliotecas
 
-# bibliotecas
-
 library(tidyquant)
 library(dplyr)
 library(tidyr)
@@ -18,7 +16,8 @@ data <- tq_get(
 
 data <- data %>% 
   select(-symbol) %>%
-  mutate(date = as.Date(date, format = "%Y-%m-%d"))
+  mutate(date = as.Date(date, format = "%Y-%m-%d"),
+         log_return = log(adjusted / lag(adjusted)))
 
 
 # checagem dos dados
@@ -33,21 +32,34 @@ datas_completas <- seq.Date(min(data$date), max(data$date), by = "day")
 datas_faltantes <- as.Date(setdiff(datas_completas, data$date),
                            format = "%Y-%m-%d")
 
+##### log retorno mensal -------------------------------------------------------
+
+data <- data %>%
+  mutate(month = format(date, "%Y-%m")) %>%
+  group_by(month) %>%
+  summarise(
+    log_return_mes = sum(log_return, na.rm = TRUE)
+  )
+
 ##### medidas descritivas ------------------------------------------------------
 
 stats_data <- data %>% 
   summarise(
-    media = mean(adjusted, na.rm = TRUE),
-    variancia = var(adjusted, na.rm = TRUE),
-    assimetria = skewness(adjusted, na.rm = TRUE),
-    curtose = kurtosis(adjusted, na.rm = TRUE),
-    max = max(adjusted, na.rm = TRUE),
-    min = min(adjusted, na.rm = TRUE)
+    media = mean(log_return_mes, na.rm = TRUE),
+    variancia = var(log_return_mes, na.rm = TRUE),
+    assimetria = skewness(log_return_mes, na.rm = TRUE),
+    curtose = kurtosis(log_return_mes, na.rm = TRUE),
+    max = max(log_return_mes, na.rm = TRUE),
+    min = min(log_return_mes, na.rm = TRUE)
   )
 
 ##### gráfico de histograma ----------------------------------------------------
 
-ggplot(data, aes(x = adjusted)) + 
+ggplot(data, aes(x = log_return_mes)) + 
   geom_histogram(bins = 30, fill = "blue", color = "black", alpha = 0.7) +
   labs(title = "Histograma da série temporal de IBOVESPA", x = "Preço Ajustado", y = "Frequência")
+
+##### calculando autocorrelação ------------------------------------------------
+
+acf <- acf(data$log_return_mes, plot = FALSE)
 
