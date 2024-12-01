@@ -33,21 +33,21 @@ datas_faltantes <- as.Date(setdiff(datas_completas, data$date),
 
 ##### gráfico da série temporal ------------------------------------------------
 
-ggplot(data, aes(x = date, y = close)) +
+ggplot(data, aes(x = date, y = adjusted)) +
   geom_line(color = "blue", size = 1) +
   labs(
     title = "Série Temporal do IBOVESPA",
     x = "Data",
-    y = "Close"
+    y = "adjusted"
   ) +
   theme_minimal() +
-  scale_x_date(date_labels = "%d-%b", date_breaks = "1 month")
+  scale_x_date(date_labels = "%Y", date_breaks = "1 year")
 
 # calculando log retorno diário
 
 data <- data %>%
   arrange(date) %>%
-  mutate(log_return = log(close / lag(close)))
+  mutate(log_return = log(adjusted / lag(adjusted)))
 
 # gráfico do log retorno
 
@@ -56,48 +56,50 @@ ggplot(data, aes(x = date, y = log_return)) +
   labs(
     title = "Série Temporal do IBOVESPA (Log Retorno)",
     x = "Data",
-    y = "Log Retorno do Close"
+    y = "Log Retorno do adjusted"
   ) +
   theme_minimal() +
-  scale_x_date(date_labels = "%d-%b", date_breaks = "1 month")
+  scale_x_date(date_labels = "%Y", date_breaks = "1 year")
 
 ##### medidas descritivas ------------------------------------------------------
 
 stats <- data.frame(
-  Mean = mean(data$close, na.rm = TRUE),
-  Median = median(data$close, na.rm = TRUE),
-  Variance = var(data$close, na.rm = TRUE),
-  Skewness = skewness(data$close, na.rm = TRUE),
-  Kurtosis = kurtosis(data$close, na.rm = TRUE)
+  Mean = mean(data$adjusted, na.rm = TRUE),
+  Median = median(data$adjusted, na.rm = TRUE),
+  Variance = var(data$adjusted, na.rm = TRUE),
+  Skewness = skewness(data$adjusted, na.rm = TRUE),
+  Kurtosis = kurtosis(data$adjusted, na.rm = TRUE)
 )
 
 ##### histograma e qqplot ------------------------------------------------------
 
-ggplot(data, aes(x = close)) +
+ggplot(data, aes(x = adjusted)) +
   geom_histogram(aes(y = after_stat(density)), bins = 30,
                  fill = "skyblue", color = "black", alpha = 0.7) +
-  stat_function(fun = dnorm, args = list(mean = mean(data$close, na.rm = TRUE), 
-                                         sd = sd(data$close, na.rm = TRUE)), 
+  stat_function(fun = dnorm, args = list(mean = mean(data$adjusted, na.rm = TRUE), 
+                                         sd = sd(data$adjusted, na.rm = TRUE)), 
                 color = "red", size = 1) +
   labs(title = "Histograma IBOVESPA com Comparação com a Distribuição Normal",
-       x = "Preço de Fechamento",
+       x = "Preço de Ajustado",
        y = "Densidade") +
   theme_minimal()
 
 # qqplots
 
-qqnorm(data$close, main = "QQ Plot IBOVESPA - Comparação com a Normal")
-qqline(data$close, col = "red")
+qqnorm(data$adjusted, main = "QQ Plot IBOVESPA - Comparação com a Normal")
+qqline(data$adjusted, col = "red")
 
 ##### testando se a serie é ruido branco ---------------------------------------
 
 # gráfico da função de autocorrelação
 
-acf(data$close, main = "Função de Autocorrelação - ACF")
+adjusted <- na.omit(data$adjusted)
 
-# teste de dickey-fuller
+acf(adjusted, main = "Função de Autocorrelação - ACF")
 
-adf.test(data$close)
+# teste de Ljung-box
+
+Box.test(adjusted, lag = 10, type = "Ljung-Box")
 
 ##### fazendo analises para log retorno ----------------------------------------
 
@@ -120,7 +122,7 @@ ggplot(data, aes(x = log_return)) +
                                          sd = sd(data$log_return, na.rm = TRUE)), 
                 color = "red", size = 1) +
   labs(title = "Histograma IBOVESPA com Comparação com a Distribuição Normal",
-       x = "Preço de Fechamento",
+       x = "Log Retorno do preço ajustado",
        y = "Densidade") +
   theme_minimal()
 
@@ -131,7 +133,9 @@ qqline(data$log_return, col = "red")
 
 # testando ruid branco
 
-acf(data$log_return, main = "Função de Autocorrelação - ACF")
+log_return <- na.omit(data$log_return)
 
-adf.test(data$log_return)
+acf(log_return, main = "Função de Autocorrelação - ACF")
+
+Box.test(log_return, lag = 10, type = "Ljung-Box")
 

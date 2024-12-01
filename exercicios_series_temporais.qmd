@@ -7,10 +7,189 @@ format:
     colorlinks: true
 ---
 
-## Questão 2
+```{r config, echo=FALSE, warning=FALSE, message=FALSE}
 
+knitr::opts_chunk$set(
+  echo = TRUE,        # Exibe o código no relatório
+  message = FALSE,    # Oculta mensagens
+  warning = FALSE,    # Oculta avisos
+  fig.align = 'center', # Centraliza os gráficos
+  fig.height = 5,     # Altura padrão dos gráficos
+  fig.width = 7,      # Largura padrão dos gráficos
+  comment = NA        # Remove os comentários automáticos (##)
+)
 
+# bibliotecas
 
-```{r}
-1 + 1
+library(tidyquant) # load data
+library(dplyr) # manipulação de dados
+library(tidyr) # manipulaçõa de dados
+library(ggplot2) # criação de gráficos
+library(tseries) # formatação de séries temporais
+library(readr) # baixando dados em formatação
+library(kableExtra)
+
 ```
+
+## Questão 1
+
+Considere os log retornos diários do IBOVESPA de 4/07/1994 a 19/08/2010:
+
+```{r questão 1 dados}
+
+data <- tq_get(
+  "^BVSP",               
+  from = "1994-07-04",    
+  to = "2010-08-19",      
+  get = "stock.prices")
+
+data <- data %>% 
+  select(-symbol) %>%
+  mutate(date = as.Date(date, format = "%Y-%m-%d"))
+
+```
+
+(a) Faça um gráfico da série e da série dos log-retornos, calcule as estatísticas de média, mediana, variância, assimetria e curtose, e comente.
+
+```{r gráficos de séries q1}
+
+# gráfico da série temporal 
+
+ggplot(data, aes(x = date, y = adjusted)) +
+  geom_line(color = "blue", size = 1) +
+  labs(
+    title = "Série Temporal do IBOVESPA",
+    x = "Data",
+    y = "adjusted"
+  ) +
+  theme_minimal() +
+  scale_x_date(date_labels = "%Y", date_breaks = "1 year")
+
+# calculando log retorno diário
+
+data <- data %>%
+  arrange(date) %>%
+  mutate(log_return = log(adjusted / lag(adjusted)))
+
+# gráfico do log retorno
+
+ggplot(data, aes(x = date, y = log_return)) +
+  geom_line(color = "lightblue", size = 1) +
+  labs(
+    title = "Série Temporal do IBOVESPA (Log Retorno)",
+    x = "Data",
+    y = "Log Retorno do adjusted"
+  ) +
+  theme_minimal() +
+  scale_x_date(date_labels = "%Y", date_breaks = "1 year")
+
+stats <- data.frame(
+  Estatística = c("Média", "Mediana", "Variância", "Assimetria", "Curtose"),
+  Valor = c(
+    mean(data$adjusted, na.rm = TRUE),
+    median(data$adjusted, na.rm = TRUE),
+    var(data$adjusted, na.rm = TRUE),
+    skewness(data$adjusted, na.rm = TRUE),
+    kurtosis(data$adjusted, na.rm = TRUE)
+  )
+)
+
+kable(stats, caption = "Estatísticas descritivas do IBOVESPA", align = "c") %>%
+  kable_styling(bootstrap_options = c("striped"), full_width = FALSE)
+
+```
+
+(b) Obtenha um histograma dos dados (série) e comente sobre a forma da distribuição, comparando com a distribuição Normal de mesma média e variância. Faça o QQ plot e comente.
+
+```{r histograma e qqplot q1}
+
+#histograma
+
+ggplot(data, aes(x = adjusted)) +
+  geom_histogram(aes(y = after_stat(density)), bins = 30,
+                 fill = "skyblue", color = "black", alpha = 0.7) +
+  stat_function(fun = dnorm, args = list(mean = mean(data$adjusted, na.rm = TRUE), 
+                                         sd = sd(data$adjusted, na.rm = TRUE)), 
+                color = "red", size = 1) +
+  labs(title = "Histograma IBOVESPA com Comparação com a Distribuição Normal",
+       x = "Preço Ajustado",
+       y = "Densidade") +
+  theme_minimal()
+
+# qqplots
+
+qqnorm(data$adjusted, main = "QQ Plot IBOVESPA - Comparação com a Normal")
+qqline(data$adjusted, col = "red")
+
+
+```
+
+Observa-se uma assimetria positiva, com uma cauda longa à direita. Isso é esperado, pois os preços financeiros geralmente não seguem uma distribuição normal. A curva em vermelho, representando uma distribuição normal ajustada, não modela bem os dados devido à assimetria e ao comportamento de cauda.
+
+(c) Comente o significado da media e teste se a serie é ruido branco ou não.
+
+```{r média q1}
+stats[1,]
+```
+
+Esta medida central pode ser interpretada como o comportamente típico ao longo do tempo.
+
+```{r ruido branco q1}
+
+# gráfico da função de autocorrelação
+
+adjusted <- na.omit(data$adjusted)
+
+acf(adjusted, main = "Função de Autocorrelação - ACF")
+
+# teste de Ljung-box
+
+Box.test(adjusted, lag = 10, type = "Ljung-Box")
+```
+Observando o gráfico da função de autocorrelaçaõ, indica a possibilidade da série ser um ruido branco, mas aplicando o teste de Ljung-Box essa hipótese é rejetada. O que indica que apesar de ter autocorrelação baixa, não é igual a zero.
+
+(d) Faz o item (b)-(c) para os log-retornos.
+
+```{r log return q1}
+
+# medidas descritivas para log retorno
+
+stats_logreturn <- data.frame(
+  Mean = mean(data$log_return, na.rm = TRUE),
+  Median = median(data$log_return, na.rm = TRUE),
+  Variance = var(data$log_return, na.rm = TRUE),
+  Skewness = skewness(data$log_return, na.rm = TRUE),
+  Kurtosis = kurtosis(data$log_return, na.rm = TRUE)
+)
+
+kable(stats_logreturn, caption = "Estatísticas descritivas do Log Retorno diário do IBOVESPA", align = "c") %>%
+  kable_styling(bootstrap_options = c("striped"), full_width = FALSE)
+
+# histograma para log retorno
+
+ggplot(data, aes(x = log_return)) +
+  geom_histogram(aes(y = after_stat(density)), bins = 30,
+                 fill = "skyblue", color = "black", alpha = 0.7) +
+  stat_function(fun = dnorm, args = list(mean = mean(data$log_return, na.rm = TRUE), 
+                                         sd = sd(data$log_return, na.rm = TRUE)), 
+                color = "red", size = 1) +
+  labs(title = "Histograma IBOVESPA com Comparação com a Distribuição Normal",
+       x = "Log Retorno do preço ajustado",
+       y = "Densidade") +
+  theme_minimal()
+
+# qqplots log retorno
+
+qqnorm(data$log_return, main = "QQ Plot IBOVESPA - Comparação com a Normal")
+qqline(data$log_return, col = "red")
+
+# testando ruido branco
+
+log_return <- na.omit(data$log_return)
+
+acf(log_return, main = "Função de Autocorrelação - ACF")
+
+Box.test(log_return, lag = 10, type = "Ljung-Box")
+```
+
+
