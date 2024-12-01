@@ -49,7 +49,7 @@ data <- data %>%
 
 ```
 
-(a) Faça um gráfico da série e da série dos log-retornos, calcule as estatísticas de média, mediana, variância, assimetria e curtose, e comente.
+- Faça um gráfico da série e da série dos log-retornos, calcule as estatísticas de média, mediana, variância, assimetria e curtose, e comente.
 
 ```{r gráficos de séries q1}
 
@@ -94,12 +94,14 @@ stats <- data.frame(
   )
 )
 
-kable(stats, caption = "Estatísticas descritivas do IBOVESPA", align = "c") %>%
+kable(stats,
+      caption = "Estatísticas descritivas do IBOVESPA",
+      align = "c") %>%
   kable_styling(bootstrap_options = c("striped"), full_width = FALSE)
 
 ```
 
-(b) Obtenha um histograma dos dados (série) e comente sobre a forma da distribuição, comparando com a distribuição Normal de mesma média e variância. Faça o QQ plot e comente.
+- Obtenha um histograma dos dados (série) e comente sobre a forma da distribuição, comparando com a distribuição Normal de mesma média e variância. Faça o QQ plot e comente.
 
 ```{r histograma e qqplot q1}
 
@@ -126,7 +128,7 @@ qqline(data$adjusted, col = "red")
 
 Observa-se uma assimetria positiva, com uma cauda longa à direita. Isso é esperado, pois os preços financeiros geralmente não seguem uma distribuição normal. A curva em vermelho, representando uma distribuição normal ajustada, não modela bem os dados devido à assimetria e ao comportamento de cauda.
 
-(c) Comente o significado da media e teste se a serie é ruido branco ou não.
+- Comente o significado da media e teste se a serie é ruido branco ou não.
 
 ```{r média q1}
 stats[1,]
@@ -146,9 +148,9 @@ acf(adjusted, main = "Função de Autocorrelação - ACF")
 
 Box.test(adjusted, lag = 10, type = "Ljung-Box")
 ```
-Observando o gráfico da função de autocorrelaçaõ, indica a possibilidade da série ser um ruido branco, mas aplicando o teste de Ljung-Box essa hipótese é rejetada. O que indica que apesar de ter autocorrelação baixa, não é igual a zero.
+Observando o gráfico da função de autocorrelaçaõ há um forte indicativo da série não ser um ruido branco, aplicando o teste de Ljung-Box confirma-se que de fato não é o caso.
 
-(d) Faz o item (b)-(c) para os log-retornos.
+- Faz o item (b)-(c) para os log-retornos.
 
 ```{r log return q1}
 
@@ -162,7 +164,9 @@ stats_logreturn <- data.frame(
   Kurtosis = kurtosis(data$log_return, na.rm = TRUE)
 )
 
-kable(stats_logreturn, caption = "Estatísticas descritivas do Log Retorno diário do IBOVESPA", align = "c") %>%
+kable(stats_logreturn,
+      caption = "Estatísticas descritivas do Log Retorno diário do IBOVESPA",
+      align = "c") %>%
   kable_styling(bootstrap_options = c("striped"), full_width = FALSE)
 
 # histograma para log retorno
@@ -192,4 +196,392 @@ acf(log_return, main = "Função de Autocorrelação - ACF")
 Box.test(log_return, lag = 10, type = "Ljung-Box")
 ```
 
+No gráfico de histograma do log retorno do preço ajustado há indicios de que os dados aderem a normalidade após a transformação. De forma similar, observa-se que o qqplot também tem um comportamento normal.
 
+Observando o gráfico da função de autocorrelaçaõ, indica a possibilidade da série ser um ruido branco, mas aplicando o teste de Ljung-Box essa hipótese é rejetada. O que indica que apesar de ter autocorrelação baixa, não é igual a zero.
+
+## Questão 2
+
+Para os dados da série log-retornos mensais do SP500 de Junho/1994 a Agosto /2001:
+
+```{r dados q2}
+data <- tq_get("^GSPC",
+               from = "1994-06-01",
+               to = "2001-08-01",
+               get = "stock.prices")
+
+data <- data %>% 
+  select(-symbol) %>%
+  mutate(date = as.Date(date, format = "%Y-%m-%d"))
+```
+
+- Qual é o retorno medio anual sobre o periodo dos dados?
+
+```{r retorno medio anual q2}
+n_anos <- as.numeric(difftime(max(data$date), min(data$date), units = "days")) / 365
+
+valor_inicial <- first(data$adjusted)
+valor_final <- last(data$adjusted)
+
+retorno_medio_anual <- (valor_final / valor_inicial)^(1 / n_anos) - 1
+
+retorno_medio_anual
+```
+
+- Qual é o retorno simples médio anualizado?
+
+```{r retorno simples médio anualizado}
+data <- data %>%
+  arrange(date) %>%
+  mutate(retorno_diario = (adjusted / lag(adjusted)) - 1)
+
+data <- data %>% filter(!is.na(retorno_diario))
+
+media_retorno_diario <- mean(data$retorno_diario)
+
+retorno_simples_anualizado <- media_retorno_diario * 252
+
+retorno_simples_anualizado
+```
+
+- Se vc investir R/. 1.00 no ativo no final de Dezembro de 1994, qual é o valor do investimento ao final do Dezembro de 2001?
+
+```{r investimento q2}
+log_retornos_periodo <- data %>%
+  filter(date >= as.Date("1994-12-31") & date <= as.Date("2001-08-31")) %>%
+  pull(retorno_diario)
+
+# Calcular log-retorno total
+log_retorno_total <- sum(log_retornos_periodo)
+
+# Converter para retorno acumulado
+retorno_acumulado <- exp(log_retorno_total)
+
+# Calcular valor final do investimento
+valor_inicial <- 1  # Investimento inicial
+valor_final <- valor_inicial * retorno_acumulado
+
+valor_final
+```
+
+## Questão 3
+
+Considere os logretornos diarios da PETR4 de 03/01 a 27/12/2000
+
+```{r dados q3}
+data <- tq_get("^GSPC",
+               from = "2000-03-01",
+               to = "2001-12-27",
+               get = "stock.prices")
+
+data <- data %>% 
+  select(-symbol) %>%
+  mutate(date = as.Date(date, format = "%Y-%m-%d"))
+
+data <- data %>%
+  arrange(date) %>%
+  mutate(
+    retorno_simples = (adjusted / lag(adjusted)) - 1,
+    log_retorno = log(adjusted / lag(adjusted))
+  )
+```
+
+- Qual é o retorno simples do dia 1 para o dia 2? E do primeiro para o 7mo?
+
+```{r simulação 1 q3}
+
+retorno_dia1_para_dia2 <- data$retorno_simples[2]
+retorno_dia1_para_dia7 <- (data$adjusted[7] / data$adjusted[1]) - 1
+
+retorno_dia1_para_dia2;retorno_dia1_para_dia7
+```
+
+- Quanto é o log retorno do dia 5 para o dia 6? E do 5 dia para o 10mo?
+
+```{r simulaçao 2 q3}
+logretorno_dia5_para_dia6 <- log(data$adjusted[6] / data$adjusted[5])
+logretorno_dia5_para_dia10 <- log(data$adjusted[10] / data$adjusted[5])
+
+logretorno_dia5_para_dia6; logretorno_dia5_para_dia10
+```
+
+- Calcule a função de autocorrelação estimada e comente.
+
+```{r autocorrelação q3}
+
+logretornos <- na.omit(data$log_retorno)
+acf_logretornos <- acf(logretornos,
+                       main = "Função de Autocorrelação dos Logretornos do PETR4")
+
+acf_logretornos
+```
+
+## Questão 4
+
+- Quetão 21
+
+A função $\gamma(\tau) = \sin(\tau)$ é uma possível função de autocovariância. Verifique sua resposta.
+
+A função $\gamma(\tau)$ deve satisfazer as seguintes propriedades:
+
+\begin{enumerate}
+    \item $\gamma(0) > 0$
+    \item $\gamma(-\tau) = \gamma(\tau)$
+    \item $|\gamma(\tau)| \leq \gamma(0)$
+    \item $\gamma(\tau)$ é não negativa definida, no sentido de que:
+    \[
+    \sum_{j=1}^n \sum_{k=1}^n a_j a_k \gamma(\tau_j - \tau_k) \geq 0
+    \]
+    para quaisquer números reais $a_1, a_2, \ldots, a_n$ e $\tau_1, \ldots, \tau_n \in \mathbb{R}$.
+\end{enumerate}
+
+É necessário verificar se $\gamma(\tau) = \sin(\tau)$ atende essas propriedades.
+
+Verificando as propriedades para $\gamma(\tau) = \sin(\tau)$:
+
+\textbf{(i) Verificação de $\gamma(0) > 0$:}
+
+$$
+\gamma(0) = \sin(0) = 0,
+$$
+logo, temos que $\gamma(0) = 0$, o que não é maior que zero. Portanto, a função não satisfaz a condição de ser não negativa em $\tau = 0$.
+
+\textbf{(ii) Verificação da simetria de $\gamma(\tau)$:}
+
+$$
+\gamma(-\tau) = \sin(-\tau) = -\sin(\tau),
+$$
+logo, $\gamma(-\tau) \neq \gamma(\tau)$. Portanto, a função não é simétrica.
+
+\textbf{(iii) Verificação de $|\gamma(\tau)| \leq \gamma(0)$:}
+
+Para $\tau = \pi/2$ temos:
+$$
+\gamma\left(\frac{\pi}{2}\right) = \sin\left(\frac{\pi}{2}\right) = 1, \quad \gamma(0) = \sin(0) = 0.
+$$
+Logo, temos que $|\gamma(\tau)| = 1 \not\leq 0$. Portanto, a função não satisfaz a condição de ser limitada por $\gamma(0)$.
+
+\textbf{(iv) Verificação de não negatividade definida:}
+
+A condição de não negatividade definida exige que a soma
+$$
+\sum_{j=1}^n \sum_{k=1}^n a_j a_k \gamma(\tau_j - \tau_k) \geq 0
+$$
+para qualquer escolha de números reais $a_1, a_2, \ldots, a_n$ e $\tau_1, \ldots, \tau_n$. No entanto, dado que $\gamma(\tau) = \sin(\tau)$ não é uma função simétrica e é oscilante, essa soma pode assumir valores negativos. Portanto, não podemos garantir que a função seja não negativa definida.
+
+- Questão 25
+
+Suponha que $\{X_t, t = 0, \pm 1, \ldots\}$ seja uma sequência de variáveis aleatórias independentes, todas com a mesma distribuição, com
+$E\{X_t\} = \mu, \quad \forall t, \quad \text{e} \quad \text{Var}\{X_t\} = \sigma^2, \quad \forall t$.
+
+Considere o processo $\{Y_t, t = 0, \pm 1, \ldots\}$, onde:
+$Y_t = \frac{1}{2}X_t + \frac{1}{4}X_{t-1} + \frac{1}{8}X_{t-2}$.
+
+O processo $\{Y_t\}$ é estacionário?
+
+Cálculos do Processo $\{Y_t\}$
+
+Calculando a esperança:
+
+$$
+E[Y_t] = E\left(\frac{1}{2}X_t + \frac{1}{4}X_{t-1} + \frac{1}{8}X_{t-2}\right)
+= \frac{1}{2}E[X_t] + \frac{1}{4}E[X_{t-1}] + \frac{1}{8}E[X_{t-2}]
+$$
+Como $E[X_t] = \mu$ para todos os $t$, temos:
+$$
+E[Y_t] = \frac{1}{2}\mu + \frac{1}{4}\mu + \frac{1}{8}\mu = \left( \frac{1}{2} + \frac{1}{4} + \frac{1}{8} \right)\mu = \frac{7}{8}\mu.
+$$
+
+Calculando a variância:
+$$
+\text{Var}(Y_t) = \text{Var}\left(\frac{1}{2}X_t + \frac{1}{4}X_{t-1} + \frac{1}{8}X_{t-2}\right)
+$$
+Utilizando a independência das variáveis $X_t$, temos:
+$$
+\text{Var}(Y_t) = \left(\frac{1}{2}\right)^2 \text{Var}(X_t) + \left(\frac{1}{4}\right)^2 \text{Var}(X_{t-1}) + \left(\frac{1}{8}\right)^2 \text{Var}(X_{t-2})
+$$
+Como $\text{Var}(X_t) = \sigma^2$, temos:
+$$
+\text{Var}(Y_t) = \frac{1}{4}\sigma^2 + \frac{1}{16}\sigma^2 + \frac{1}{64}\sigma^2 = \left(\frac{1}{4} + \frac{1}{16} + \frac{1}{64}\right)\sigma^2 = \frac{21}{64}\sigma^2.
+$$
+
+Calculando a covariância:
+$$
+\text{Cov}(Y_t, Y_{t+s}) = E[Y_t Y_{t+s}] - E[Y_t]E[Y_{t+s}]
+$$
+
+Para $s = 0$:
+$$
+\text{Cov}(Y_t, Y_t) = \text{Var}(Y_t)
+$$
+
+Para $s = 1$:
+$$
+\text{Cov}(Y_t, Y_{t+1}) = \frac{5}{32}\sigma^2
+$$
+
+Para $s = 2$:
+$$
+\text{Cov}(Y_t, Y_{t+2}) = \frac{1}{16}\sigma^2
+$$
+
+Para $s \geq 3$:
+$$
+\text{Cov}(Y_t, Y_{t+s}) = 0
+$$
+
+O processo é estacionário.
+
+## Questão 5
+
+Use um programa computacional para calcular:
+
+```{r dados q5}
+# baixando dados
+
+data1 <- read_csv("data/ENERGIA.csv")
+
+data2 <- read_csv("data/OZONIO.csv")
+
+# tratando dados
+
+data1 <- data1 %>%
+  mutate(
+    Ano = as.numeric(as.character(Ano)),
+    Mes = as.numeric(as.character(Mes)),
+    date = as.Date(paste(Ano, Mes, "01", sep = "-"), format = "%Y-%m-%d"),
+    energia = Energia
+  ) %>%
+  select(date, energia)
+
+data2 <- data2 %>%
+  mutate(
+    Ano = as.numeric(as.character(Ano)),
+    Mes = as.numeric(as.character(Mes)),
+    date = as.Date(paste(Ano, Mes, "01", sep = "-"), format = "%Y-%m-%d"),
+    ozonio = Ozonio
+  ) %>%
+  select(date, ozonio)
+
+# tansformando em formato time-series
+
+data1_ts <- ts(data1$energia,  start = c(1968, 1), frequency = 12)
+
+data2_ts <- ts(data2$ozonio, start = c(1956, 1), frequency = 12)
+```
+
+- média amostral
+
+```{r media q5}
+media_amostral1 <- mean(data1$energia)
+
+media_amostral2 <- mean(data2$ozonio)
+
+media_amostral1
+media_amostral2
+```
+
+- $C_k$ e $r_k$ para k = 1,...,36.
+
+```{r calulos Q5}
+# calculando a autocorrelação (ACF) para K = 1, ..., 36
+
+acf1 <- acf(data1_ts, lag.max = 36, plot = TRUE)$acf[-1] # remove o lag 0
+acf1
+
+acf2 <- acf(data2_ts, lag.max = 36, plot = TRUE)$acf[-1]
+acf2
+
+# calculando a variância da série
+
+var1 <- var(data1_ts)
+
+var2 <- var(data2_ts)
+
+var1;var2
+
+# calculando a autocovariância
+
+autocov1 <- acf1 * var1
+
+autocov2 <- acf2 * var2
+
+autocov1
+autocov2
+```
+
+- Faça os gráficos da série e de $r_k$. Comente sobre a presença de tendencia, sazonalidades, ciclos.
+
+```{r decompose q5}
+
+# gráficos da série, sazonalidade e tendencia
+
+decompose_graph1 <- decompose(data1_ts)
+
+decompose_graph2 <- decompose(data2_ts)
+
+plot(decompose_graph1)
+
+plot(decompose_graph2)
+```
+
+O primeiro gráfico apresenta uma série temporal com uma tendência aparentemente crescente, com um pico acentuado próximo ao final do período, acompanhado por uma variabilidade aleatória mais intensa. Já o segundo gráfico reflete uma série mais estacionária, com a tendência oscilando suavemente ao longo do tempo, sem padrões de crescimento ou declínio definidos. Em ambas as séries, a sazonalidade se mostra regular e consistente. A principal diferença está no comportamento geral: enquanto a primeira série evidencia um crescimento acentuado e eventos fora do padrão, a segunda mantém estabilidade e equilíbrio entre os componentes.
+
+## Questão 6
+
+Use um programa computacional e a série dos log retornos mensais do IBOVESPA para calcular:
+
+```{r dados q6}
+data <- tq_get(
+  "^BVSP",               
+  from = "1994-07-04",    
+  to = "2010-08-19",      
+  get = "stock.prices")
+
+data <- data %>% 
+  select(-symbol) %>%
+  mutate(date = as.Date(date, format = "%Y-%m-%d"),
+         log_return = log(adjusted / lag(adjusted)))
+
+data <- data %>%
+  mutate(month = format(date, "%Y-%m")) %>%
+  group_by(month) %>%
+  summarise(
+    log_return_mes = sum(log_return, na.rm = TRUE)
+  )
+
+```
+
+- média e variância amostrais, coeficientes de assimetria e curtose, máximo e mínimo, histogramas;
+
+```{r Q6}
+stats_data <- data %>% 
+  summarise(
+    media = mean(log_return_mes, na.rm = TRUE),
+    variancia = var(log_return_mes, na.rm = TRUE),
+    assimetria = skewness(log_return_mes, na.rm = TRUE),
+    curtose = kurtosis(log_return_mes, na.rm = TRUE),
+    max = max(log_return_mes, na.rm = TRUE),
+    min = min(log_return_mes, na.rm = TRUE)
+  )
+
+kable(stats_data,
+      caption = "Estatísticas descritivas do Log Retorno mensal do IBOVESPA",
+      align = "c") %>%
+  kable_styling(bootstrap_options = c("striped"), full_width = FALSE)
+
+ggplot(data, aes(x = log_return_mes)) + 
+  geom_histogram(bins = 30, fill = "blue", color = "black", alpha = 0.7) +
+  labs(title = "Histograma da série temporal de IBOVESPA",
+       x = "Preço Ajustado",
+       y = "Frequência")
+```
+
+- autocorreções amostrais
+
+```{r autocorrelaçaõ q6}
+
+acf <- acf(data$log_return_mes, plot = TRUE)
+
+acf
+```

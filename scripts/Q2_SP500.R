@@ -54,16 +54,19 @@ retorno_simples_anualizado <- media_retorno_diario * 252
 # Se vc investir R/. 1.00 no ativo no final de Dezembro de 1994, qual é o valor do
 # investimento ao final do Dezembro de 2001?
 
-preco_inicial <- data %>% 
-  filter(date == as.Date("1994-12-30")) %>% 
-  pull(adjusted)
+log_retornos_periodo <- data %>%
+  filter(date >= as.Date("1994-12-31") & date <= as.Date("2001-08-31")) %>%
+  pull(retorno_diario)
 
-preco_final <- data %>% 
-  filter(date == as.Date("2001-12-31")) %>% 
-  pull(adjusted)
+# Calcular log-retorno total
+log_retorno_total <- sum(log_retornos_periodo)
 
-investimento_inicial <- 1
-valor_final_investimento <- investimento_inicial * (preco_final / preco_inicial)
+# Converter para retorno acumulado
+retorno_acumulado <- exp(log_retorno_total)
+
+# Calcular valor final do investimento
+valor_inicial <- 1  # Investimento inicial
+valor_final <- valor_inicial * retorno_acumulado
 
 
 
