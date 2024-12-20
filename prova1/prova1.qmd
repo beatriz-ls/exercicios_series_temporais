@@ -1,0 +1,33 @@
+---
+title: "Prova 1 - Questão 5"
+author: "Beatriz Lima Silveira"
+format: pdf
+editor: visual
+---
+
+## Questão 5
+
+**Identifique um modelo ARIMA para série de retornos diarios do Banespa Série A9.**
+
+```{r dados, warning=FALSE, message=FALSE, include=TRUE, echo=FALSE}
+
+library(dplyr)
+
+data <- read.table("banespa.txt", header = FALSE, sep = "\t", fileEncoding = "UTF-8")
+
+data <- data %>% mutate(retorno_diario = (V1 / lag(V1)) - 1)
+
+data <- data %>% filter(!is.na(retorno_diario))
+```
+
+Para definir os parametros do modelo ARIMA, é necessário avaliar os gráficos de autocorrelação e autocorrelação parcial.
+
+```{r graficos, warning=FALSE, message=FALSE, include=TRUE}
+
+acf(data$retorno_diario, main = "Função de Autocorrelação - ACF")
+
+pacf(data$retorno_diario, main = "Função de Autocorrelação parcial - PACF")
+
+```
+
+Observando o gráfico da função de autocorrelação, percebemos que há um declinio significativo no lag 1 p que indica um MA(1). Observando também o gráfico de função de autocorrelação parcial percebemos um comportamento de senoidal com as autocorrelações estando em maioria entre o intervalo de confiança e com pico no lag 0, indicando um AR(1). Intuitivamente, podemos identificar um modelo ARIMA(1,0,1) com diferença igual a 0.
