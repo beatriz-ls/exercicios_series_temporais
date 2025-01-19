@@ -1,0 +1,14 @@
+---
+title: "Atividade Prática"
+author: "Beatriz Lima Silveira"
+format: pdf
+---
+
+## Questão 19
+
+Considere a série $A_1$ - Teperatura em Ubatuba:
+
+```{r dados}
+
+
+```
