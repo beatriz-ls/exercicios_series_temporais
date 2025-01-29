@@ -6,10 +6,12 @@ library(ggplot2)
 library(tseries)
 library(readODS)
 library(tidyverse)
+library(trend)
+library(forecast)
 
 ##### baixando dados -----------------------------------------------------------
 
-data <- read_ods("atividade_pratica/temperatura.ods")
+data <- read_ods("atividade_pratica/data/temperatura.ods")
 
 # transformando em formato time series
 
@@ -56,29 +58,34 @@ data_fit <- data %>% select(-c(Cananeia))
 
 adf.test(data_fit$Ubatuba) # série estacionária
 
-## assumindo modelo com tendencia não consideravel e sazonalidade deterministica
+## testes de tendencia
 
-# Converter ano para numérico e criar variável de tempo
-data_fit$t <- 1:nrow(data_df)
-data_fit$t2 <- data_df$t^2
+cox.stuart.test(data_fit$Ubatuba) # há tendencia
 
-# ajustar o modelo de regressão linear
-modelo <- lm(Ubatuba ~ factor(Mes), data = data_fit)
+mk.test(data_fit$Ubatuba) # há tendencia
 
-# Exibir os resultados do modelo
-summary(modelo)
+## assumindo modelo com tendencia e sazonalidade deterministica
 
-## analisando os residuos do modelo proposto
-
-# Diagnóstico gráfico dos resíduos
-par(mfrow = c(2,2))
-plot(modelo)
-
-# Teste de Ljung-Box para verificar autocorrelação nos resíduos
-Box.test(residuals(modelo), lag = 12, type = "Ljung-Box")
+# ajustar o modelo de holt-winters
+modelo_hw <- hw(data_ts, seasonal = "multiplicative")
 
 
-modelo_hw <- HoltWinters(serie_ts, beta = FALSE)
+# Criando um dataframe para visualização
+df_plot <- data.frame(
+  Data = time(data_ts), 
+  Original = as.numeric(data_ts),
+  Aditivo = as.numeric(modelo_hw$fitted)
+)
+
+# Plotando com ggplot2
+ggplot(df_plot, aes(x = Data)) +
+  geom_line(aes(y = Original, color = "Original")) +
+  geom_line(aes(y = Suavizado, color = "Suavizado"), linetype = "dashed") +
+  labs(title = "Série Original vs Série Suavizada (Holt-Winters)",
+       x = "Tempo", y = "Valor") +
+  scale_color_manual(values = c("Original" = "black", "Suavizado" = "red")) +
+  theme_minimal()
+
 
 
 
