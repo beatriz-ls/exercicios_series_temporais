@@ -50,7 +50,7 @@ stl1 <- stl(data_ts1, s.window = "periodic")
 plot(stl1)
 
 
-##### modelo de decomposição ---------------------------------------------------
+##### suavização médias móveis -------------------------------------------------
 
 data_fit <- data %>% select(-c(Cananeia))
 
@@ -64,20 +64,20 @@ cox.stuart.test(data_fit$Ubatuba) # há tendencia
 
 mk.test(data_fit$Ubatuba) # há tendencia
 
-## assumindo modelo com tendencia e sazonalidade deterministica
+## assumindo modelo com tendencia e sazonalidade
 
 # ajustar o modelo de holt-winters
-modelo_hw <- hw(data_ts, seasonal = "multiplicative")
+modelo_hw <- hw(data_ts, seasonal = "additive")
 
 
-# Criando um dataframe para visualização
+# criando um dataframe para visualização
 df_plot <- data.frame(
   Data = time(data_ts), 
   Original = as.numeric(data_ts),
   Aditivo = as.numeric(modelo_hw$fitted)
 )
 
-# Plotando com ggplot2
+# plotando com ggplot2
 ggplot(df_plot, aes(x = Data)) +
   geom_line(aes(y = Original, color = "Original")) +
   geom_line(aes(y = Suavizado, color = "Suavizado"), linetype = "dashed") +
@@ -86,6 +86,24 @@ ggplot(df_plot, aes(x = Data)) +
   scale_color_manual(values = c("Original" = "black", "Suavizado" = "red")) +
   theme_minimal()
 
+
+
+# Suavização por média móvel de 12 meses
+media_movel_12 <- filter(data_ts, rep(1/12, 12), sides = 2)
+
+# Plotando a série original e a suavizada
+plot(data_ts, type = "l", col = "blue", main = "Temperatura em Ubatuba e Média Móvel de 12 meses", ylab = "Temperatura (°C)")
+lines(media_movel_12, col = "red", lwd = 2)
+legend("topright", legend = c("Original", "Média Móvel de 12 meses"), col = c("blue", "red"), lwd = 2)
+
+
+# Suavização por média móvel de 6 meses
+media_movel_6 <- filter(data_ts, rep(1/6, 6), sides = 2)
+
+# Plotando a série original e a suavizada
+plot(data_ts, type = "l", col = "blue", main = "Temperatura em Ubatuba e Média Móvel de 6 meses", ylab = "Temperatura (°C)")
+lines(media_movel_6, col = "green", lwd = 2)
+legend("topright", legend = c("Original", "Média Móvel de 6 meses"), col = c("blue", "green"), lwd = 2)
 
 
 
