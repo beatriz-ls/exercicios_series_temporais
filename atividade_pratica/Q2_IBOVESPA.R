@@ -81,6 +81,17 @@ ggplot(df_plot, aes(x = Data)) +
   scale_color_manual(values = c("Original" = "black", "Suavizado" = "red")) +
   theme_minimal()
 
+# suavização por médias móveis
+
+df_ma <- cbind(data$adjusted,
+               ma(data$adjusted, order = 6),
+               ma(data$adjusted, order = 12))
+
+
+ts.plot(df_ma, col = c("black", "blue", "red"), lty = 1:3,
+        main = "Temperatura em Ubatuba e Médias Móveis")
+legend("topright", legend = c("Original", "Média Móvel 6", "Média Móvel 12"),
+       col = c("black", "blue", "red"), lty = 1:3, bty = "n")
 
 
 

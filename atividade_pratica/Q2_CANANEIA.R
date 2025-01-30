@@ -15,7 +15,7 @@ data <- read_ods("atividade_pratica/data/temperatura.ods")
 
 # transformando em formato time series
 
-data_ts <- ts(data$Ubatuba,  start = c(1976, 1), frequency = 12)
+data_ts <- ts(data$Cananeia,  start = c(1976, 1), frequency = 12)
 
 # checagem dos dados
 
@@ -52,17 +52,17 @@ plot(stl1)
 
 ##### suavização médias móveis -------------------------------------------------
 
-data_fit <- data %>% select(-c(Cananeia))
+data_fit <- data %>% select(-c(Ubatuba))
 
 ## teste de estacionariedade
 
-adf.test(data_fit$Ubatuba) # série estacionária
+adf.test(data_fit$Cananeia) # série estacionária
 
 ## testes de tendencia
 
-cox.stuart.test(data_fit$Ubatuba) # há tendencia
+cox.stuart.test(data_fit$Cananeia) # há tendencia
 
-mk.test(data_fit$Ubatuba) # há tendencia
+mk.test(data_fit$Cananeia) # há tendencia
 
 ## assumindo modelo com tendencia e sazonalidade
 
@@ -93,23 +93,14 @@ ggplot(df_plot, aes(x = Data)) +
 
 # suavização por médias móveis
 
-df_ma <- cbind(data_fit$Ubatuba,
-               ma(data_fit$Ubatuba, order = 6),
-               ma(data_fit$Ubatuba, order = 12))
+df_ma <- cbind(data_fit$Cananeia,
+               ma(data_fit$Cananeia, order = 6),
+               ma(data_fit$Cananeia, order = 12))
 
 
 ts.plot(df_ma, col = c("black", "blue", "red"), lty = 1:3,
-        main = "Temperatura em Ubatuba e Médias Móveis")
+        main = "Temperatura em Cananeia e Médias Móveis")
 legend("topright", legend = c("Original", "Média Móvel 6", "Média Móvel 12"),
        col = c("black", "blue", "red"), lty = 1:3, bty = "n")
-
-
-
-
-
-
-
-
-
 
 
