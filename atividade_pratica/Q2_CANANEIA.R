@@ -93,9 +93,12 @@ ggplot(df_plot, aes(x = Data)) +
 
 # suavização por médias móveis
 
+ma_6 <- ma(data_fit$Cananeia, order = 6)
+ma_12 <- ma(data_fit$Cananeia, order = 12)
+
 df_ma <- cbind(data_fit$Cananeia,
-               ma(data_fit$Cananeia, order = 6),
-               ma(data_fit$Cananeia, order = 12))
+               ma_6,
+               ma_12)
 
 
 ts.plot(df_ma, col = c("black", "blue", "red"), lty = 1:3,
@@ -104,3 +107,32 @@ legend("topright", legend = c("Original", "Média Móvel 6", "Média Móvel 12")
        col = c("black", "blue", "red"), lty = 1:3, bty = "n")
 
 
+
+# Criando um dataframe para comparação
+df_comparacao <- data.frame(
+  Data = time(data_ts),
+  Original = as.numeric(data_ts),
+  HoltWinters = as.numeric(modelo_hw$fitted),
+  MediaMovel6 = as.numeric(ma_6),
+  MediaMovel12 = as.numeric(ma_12)
+)
+
+# Cálculo das métricas de erro
+mae <- function(real, previsto) mean(abs(real - previsto), na.rm = TRUE)
+mse <- function(real, previsto) mean((real - previsto)^2, na.rm = TRUE)
+mape <- function(real, previsto) mean(abs((real - previsto) / real), na.rm = TRUE) * 100
+
+resultados_erro <- data.frame(
+  Metodo = c("Holt-Winters", "Média Móvel 6", "Média Móvel 12"),
+  MAE = c(mae(df_comparacao$Original, df_comparacao$HoltWinters),
+          mae(df_comparacao$Original, df_comparacao$MediaMovel6),
+          mae(df_comparacao$Original, df_comparacao$MediaMovel12)),
+  MSE = c(mse(df_comparacao$Original, df_comparacao$HoltWinters),
+          mse(df_comparacao$Original, df_comparacao$MediaMovel6),
+          mse(df_comparacao$Original, df_comparacao$MediaMovel12)),
+  MAPE = c(mape(df_comparacao$Original, df_comparacao$HoltWinters),
+           mape(df_comparacao$Original, df_comparacao$MediaMovel6),
+           mape(df_comparacao$Original, df_comparacao$MediaMovel12))
+)
+
+print(resultados_erro)
