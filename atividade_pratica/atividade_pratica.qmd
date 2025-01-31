@@ -16,82 +16,77 @@ library(tseries)
 library(readODS)
 library(tidyverse)
 library(readxl)
+library(forecast)
 ```
 
 ## Suavização com Médias Móveis
 
-```{ma function, warning = FALSE}
+```{r ma, warning = FALSE}
 
-ma <- function(x, order) {
-  if (!is.numeric(x)) stop("x must be numeric")
-  if (!is.numeric(order) || order <= 0) stop("order must be a positive integer")
+moving_averages <- function(x, order, centre = TRUE) {
   
-  filt <- rep(1/order, order)  # Criando o filtro de médias móveis
-  ma_values <- stats::filter(x, filt, sides = 2)  # Aplicando a média móvel com a função nativa
-  
-  return(ma_values)
+  if (centre == TRUE) {
+    # Média Móvel centrada
+    return(stats::filter(x, rep(1/order, order), sides = 2))
+  } else {
+    # Média Móvel não centrada
+    return(stats::filter(x, rep(1/order, order), sides = 1))
+  }
 }
 
-
 ```
+
+A função ma() calcula a média móvel de uma série temporal, ajudando a suavizar flutuações e identificar tendências. Se centre = TRUE, ela aplica um filtro simétrico, considerando valores antes e depois de cada ponto. Caso contrário, usa apenas os valores anteriores. O argumento order define o tamanho da janela da média, e precisa ser ímpar se a centralização for ativada.
 
 ## Suavização com Holt-Winters
 
-```{hw function, warning = FALSE}
-
-hw <- function(y, h = 2 * frequency(x), seasonal = c("additive", "multiplicative"), damped = FALSE,
-               level = c(80, 95), fan = FALSE, initial=c("optimal", "simple"), exponential=FALSE,
-               alpha=NULL, beta=NULL, gamma=NULL, phi=NULL, lambda=NULL, biasadj=FALSE, x=y, ...) {
-  initial <- match.arg(initial)
-  seasonal <- match.arg(seasonal)
+```{r hw, warning = FALSE}
+holt_winters <- function(y, sazonal = c("aditivo", "multiplicativo"),
+                      alpha = NULL, beta = NULL, gamma = NULL,
+                      phi = NULL, lambda = NULL, ajuste_sesgo = FALSE,
+                      x = y, ...) {
+  
+  sazonal <- match.arg(sazonal)
   m <- frequency(x)
+  
   if (m <= 1L) {
-    stop("The time series should have frequency greater than 1.")
+    stop("A série temporal deve ter uma frequência maior que 1.")
   }
+  
   if (length(y) < m + 3) {
-    stop(paste("I need at least", m + 3, "observations to estimate seasonality."))
+    stop(paste("São necessárias pelo menos", m + 3, "observações para estimar a sazonalidade."))
   }
-  if (initial == "optimal" || damped) {
-    if (seasonal == "additive" && exponential) {
-      stop("Forbidden model combination")
-    } else if (seasonal == "additive" && !exponential) {
-      fcast <- forecast(ets(x, "AAA", alpha = alpha, beta = beta, gamma = gamma, phi = phi, damped = damped, opt.crit = "mse", lambda = lambda, biasadj = biasadj), h, level = level, fan = fan, ...)
-    } else if (seasonal != "additive" && exponential) {
-      fcast <- forecast(ets(x, "MMM", alpha = alpha, beta = beta, gamma = gamma, phi = phi, damped = damped, opt.crit = "mse", lambda = lambda, biasadj = biasadj), h, level = level, fan = fan, ...)
-    } else { # if(seasonal!="additive" & !exponential)
-      fcast <- forecast(ets(x, "MAM", alpha = alpha, beta = beta, gamma = gamma, phi = phi, damped = damped, opt.crit = "mse", lambda = lambda, biasadj = biasadj), h, level = level, fan = fan, ...)
-    }
-  }
-  else {
-    fcast <- forecast(
-      HoltWintersZZ(x, alpha = alpha, beta = beta, gamma = gamma, phi = phi, seasonal = seasonal, exponential = exponential, lambda = lambda, biasadj = biasadj),
-      h, level = level, fan = fan, ...
-    )
-  }
-  if (seasonal == "additive") {
-    fcast$method <- "Holt-Winters' additive method"
+  
+  if (sazonal == "aditivo") {
+    modelo <- ets(x, "AAA", alpha = alpha, beta = beta,
+                  gamma = gamma, phi = phi, opt.crit = "mse",
+                  lambda = lambda, biasadj = ajuste_sesgo)
   } else {
-    fcast$method <- "Holt-Winters' multiplicative method"
+    modelo <- ets(x, "MAM", alpha = alpha, beta = beta,
+                  gamma = gamma, phi = phi, opt.crit = "mse",
+                  lambda = lambda, biasadj = ajuste_sesgo)
   }
-  if (exponential) {
-    fcast$method <- paste(fcast$method, "with exponential trend")
-  }
-  if (damped) {
-    fcast$method <- paste("Damped", fcast$method)
-    if (initial == "simple") {
-      warning("Damped methods require optimal initialization")
-    }
-  }
-  fcast$model$method <- fcast$method
-  fcast$model$call <- match.call()
-  fcast$series <- deparse(substitute(y))
-
-  return(fcast)
+  
+  return(modelo)
 }
+```
+
+A função verifica se a série tem dados suficientes e se a frequência é válida. Após isso, ela usa o modelo de suavização exponencial para estimar a série suavizada, retornando o modelo ajustado.
+
+## Comparando suavizações
+
+```{r comparações, warning=FALSE}
+
+# Cálculo das métricas de erro
+mae <- function(real, suavisado) mean(abs(real - suavisado), na.rm = TRUE)
+mse <- function(real, suavisado) mean((real - suavisado)^2, na.rm = TRUE)
+mape <- function(real, suavisado) mean(abs((real - suavisado) / real), na.rm = TRUE) * 100
 
 ```
 
-## A série Temperatura em Ubatuba:
+As métricas MAE, MSE e MAPE são usadas para avaliar a qualidade de modelos de suavização, cada uma de maneira diferente. O MAE calcula o erro médio absoluto e fornece uma medida simples da precisão do modelo, sem penalizar excessivamente erros grandes. O MSE dá mais peso aos erros maiores, tornando-o útil quando se deseja controlar grandes discrepâncias. O MAPE avalia o erro relativo em porcentagem, sendo útil para comparar modelos em diferentes escalas.
+
+## A série temperatura em Ubatuba:
 
 ```{r ubatuba, warning=FALSE}
 
@@ -109,19 +104,8 @@ data_fit <- data %>% select(-c(Cananeia))
 
 # suavização por médias móveis
 
-ma <- function(x, order) {
-  if (!is.numeric(x)) stop("x must be numeric")
-  if (!is.numeric(order) || order <= 0) stop("order must be a positive integer")
-  
-  filt <- rep(1/order, order)  # Criando o filtro de médias móveis
-  ma_values <- stats::filter(x, filt, sides = 2)  # Aplicando a média móvel com a função nativa
-  
-  return(ma_values)
-}
-
-
-ma_6 <- ma(data_fit$Ubatuba, order = 6)
-ma_12 <- ma(data_fit$Ubatuba, order = 12)
+ma_6 <- moving_averages(data_fit$Ubatuba, order = 6)
+ma_12 <- moving_averages(data_fit$Ubatuba, order = 12)
 
 df_ma <- cbind(data_fit$Ubatuba,
                ma_6,
@@ -139,7 +123,7 @@ legend("topright",
 
 # ajustar o modelo de holt-winters
 
-modelo_hw <- hw(data_ts, seasonal = "additive")
+modelo_hw <- holt_winters(data_ts, seasonal = "additive")
 
 plot(data_ts, type = "l", col = "blue",
      main = "Série Original e Holt-Winters",
@@ -151,12 +135,6 @@ legend("topright",
        col = c("blue", "red"), lwd = 2)
 
 # Comparando suavizações
-
-# Cálculo das métricas de erro
-mae <- function(real, previsto) mean(abs(real - previsto), na.rm = TRUE)
-mse <- function(real, previsto) mean((real - previsto)^2, na.rm = TRUE)
-mape <- function(real, previsto) mean(abs((real - previsto) / real), na.rm = TRUE) * 100
-
 
 # Criando um dataframe para comparação
 df_comparacao <- data.frame(
@@ -204,7 +182,7 @@ plot(decompose)
 data_fit <- data %>% select(-c(Ubatuba))
 
 # ajustar o modelo de holt-winters
-modelo_hw <- hw(data_ts, seasonal = "additive")
+modelo_hw <- holt_winters(data_ts, seasonal = "additive")
 
 plot(data_ts, type = "l", col = "blue",
      main = "Série Original e Holt-Winters",
@@ -231,12 +209,10 @@ ggplot(df_plot, aes(x = Data)) +
                                 "Suavizado" = "red")) +
   theme_minimal()
 
-
-
 # suavização por médias móveis
 
-ma_6 <- ma(data_fit$Cananeia, order = 6)
-ma_12 <- ma(data_fit$Cananeia, order = 12)
+ma_6 <- moving_averages(data_fit$Cananeia, order = 6)
+ma_12 <- moving_averages(data_fit$Cananeia, order = 12)
 
 df_ma <- cbind(data_fit$Cananeia,
                ma_6,
@@ -280,7 +256,7 @@ print(resultados_erro)
 
 ```
 
-## Série Consumo
+## A série de Consumo
 
 ```{r consumo, warning=FALSE}
 
@@ -291,18 +267,19 @@ data <- read_excel("data/CONSUMO.xls")
 
 data_ts <- ts(data$consumo,  start = c(1984,1), frequency = 12)
 
-
 decompose <- decompose(data_ts)
 
 plot(decompose)
 
 
 # ajustar o modelo de holt-winters
-modelo_hw <- hw(data_ts, seasonal = "additive")
+modelo_hw <- holt_winters(data_ts, seasonal = "additive")
 
-plot(data_ts, type = "l", col = "blue", main = "Série Original e Holt-Winters", ylab = "Valor")
+plot(data_ts, type = "l", col = "blue",
+     main = "Série Original e Holt-Winters", ylab = "Valor")
 lines(modelo_hw$fitted, col = "red", lwd = 2)
-legend("topright", legend = c("Série Original", "Ajuste HW"), col = c("blue", "red"), lwd = 2)
+legend("topright", legend = c("Série Original", "Ajuste HW"),
+       col = c("blue", "red"), lwd = 2)
 
 # criando um dataframe para visualização
 df_plot <- data.frame(
@@ -320,12 +297,10 @@ ggplot(df_plot, aes(x = Data)) +
   scale_color_manual(values = c("Original" = "black", "Suavizado" = "red")) +
   theme_minimal()
 
-
-
 # suavização por médias móveis
 
-ma_6 <- ma(data_ts, order = 6)
-ma_12 <- ma(data_ts, order = 12)
+ma_6 <- moving_averages(data_ts, order = 6)
+ma_12 <- moving_averages(data_ts, order = 12)
 
 df_ma <- cbind(data$consumo,
                ma_6,
