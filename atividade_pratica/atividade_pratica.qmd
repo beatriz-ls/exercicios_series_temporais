@@ -15,15 +15,87 @@ library(ggplot2)
 library(tseries)
 library(readODS)
 library(tidyverse)
-library(forecast)
 library(readxl)
+```
+
+## Suavização com Médias Móveis
+
+```{ma function, warning = FALSE}
+
+ma <- function(x, order) {
+  if (!is.numeric(x)) stop("x must be numeric")
+  if (!is.numeric(order) || order <= 0) stop("order must be a positive integer")
+  
+  filt <- rep(1/order, order)  # Criando o filtro de médias móveis
+  ma_values <- stats::filter(x, filt, sides = 2)  # Aplicando a média móvel com a função nativa
+  
+  return(ma_values)
+}
+
+
+```
+
+## Suavização com Holt-Winters
+
+```{hw function, warning = FALSE}
+
+hw <- function(y, h = 2 * frequency(x), seasonal = c("additive", "multiplicative"), damped = FALSE,
+               level = c(80, 95), fan = FALSE, initial=c("optimal", "simple"), exponential=FALSE,
+               alpha=NULL, beta=NULL, gamma=NULL, phi=NULL, lambda=NULL, biasadj=FALSE, x=y, ...) {
+  initial <- match.arg(initial)
+  seasonal <- match.arg(seasonal)
+  m <- frequency(x)
+  if (m <= 1L) {
+    stop("The time series should have frequency greater than 1.")
+  }
+  if (length(y) < m + 3) {
+    stop(paste("I need at least", m + 3, "observations to estimate seasonality."))
+  }
+  if (initial == "optimal" || damped) {
+    if (seasonal == "additive" && exponential) {
+      stop("Forbidden model combination")
+    } else if (seasonal == "additive" && !exponential) {
+      fcast <- forecast(ets(x, "AAA", alpha = alpha, beta = beta, gamma = gamma, phi = phi, damped = damped, opt.crit = "mse", lambda = lambda, biasadj = biasadj), h, level = level, fan = fan, ...)
+    } else if (seasonal != "additive" && exponential) {
+      fcast <- forecast(ets(x, "MMM", alpha = alpha, beta = beta, gamma = gamma, phi = phi, damped = damped, opt.crit = "mse", lambda = lambda, biasadj = biasadj), h, level = level, fan = fan, ...)
+    } else { # if(seasonal!="additive" & !exponential)
+      fcast <- forecast(ets(x, "MAM", alpha = alpha, beta = beta, gamma = gamma, phi = phi, damped = damped, opt.crit = "mse", lambda = lambda, biasadj = biasadj), h, level = level, fan = fan, ...)
+    }
+  }
+  else {
+    fcast <- forecast(
+      HoltWintersZZ(x, alpha = alpha, beta = beta, gamma = gamma, phi = phi, seasonal = seasonal, exponential = exponential, lambda = lambda, biasadj = biasadj),
+      h, level = level, fan = fan, ...
+    )
+  }
+  if (seasonal == "additive") {
+    fcast$method <- "Holt-Winters' additive method"
+  } else {
+    fcast$method <- "Holt-Winters' multiplicative method"
+  }
+  if (exponential) {
+    fcast$method <- paste(fcast$method, "with exponential trend")
+  }
+  if (damped) {
+    fcast$method <- paste("Damped", fcast$method)
+    if (initial == "simple") {
+      warning("Damped methods require optimal initialization")
+    }
+  }
+  fcast$model$method <- fcast$method
+  fcast$model$call <- match.call()
+  fcast$series <- deparse(substitute(y))
+
+  return(fcast)
+}
+
 ```
 
 ## A série Temperatura em Ubatuba:
 
 ```{r ubatuba, warning=FALSE}
 
-data <- read_ods("data/temperatura.ods")
+data <- read_ods("data/temperatura.ods") 
 
 # transformando em formato time series
 
@@ -36,6 +108,17 @@ plot(decompose)
 data_fit <- data %>% select(-c(Cananeia))
 
 # suavização por médias móveis
+
+ma <- function(x, order) {
+  if (!is.numeric(x)) stop("x must be numeric")
+  if (!is.numeric(order) || order <= 0) stop("order must be a positive integer")
+  
+  filt <- rep(1/order, order)  # Criando o filtro de médias móveis
+  ma_values <- stats::filter(x, filt, sides = 2)  # Aplicando a média móvel com a função nativa
+  
+  return(ma_values)
+}
+
 
 ma_6 <- ma(data_fit$Ubatuba, order = 6)
 ma_12 <- ma(data_fit$Ubatuba, order = 12)
@@ -55,6 +138,7 @@ legend("topright",
        lty = 1:3, bty = "n")
 
 # ajustar o modelo de holt-winters
+
 modelo_hw <- hw(data_ts, seasonal = "additive")
 
 plot(data_ts, type = "l", col = "blue",
