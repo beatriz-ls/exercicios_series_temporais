@@ -1,0 +1,119 @@
+---
+title: "Prova 2"
+author: "Beatriz Lima Silveira"
+format: pdf
+editor: visual
+---
+
+## Questão 1
+
+```{r dados, warning=FALSE, message=FALSE}
+
+# bibliotecas
+library(readxl)
+library(forecast)
+library(rugarch)
+
+# Carregando os dados
+Petrobras <- read_excel("Petrobras.xls")
+
+# Calculando o log retorno
+log_retornos <- diff(log(Petrobras$PETROBRAS))
+
+```
+
+Ajustando um modelo ARMA.
+
+```{r modelo, warning=FALSE, message=FALSE}
+
+
+lista_modelos <- NULL
+
+for (d in 0:1){
+  for (p in 0:5){
+    for (q in 0:5){
+      modelo <- forecast::Arima(log_retornos, order = c(p, d, q))
+      lista_modelos <- rbind(lista_modelos, c(p, d, q, modelo$aic))
+    }
+  }
+}
+
+lista_modelos <- as.data.frame(lista_modelos)
+colnames(lista_modelos) <- c("p", "d", "q", "aic")
+
+modelos <- lista_modelos |>
+  dplyr::arrange(aic)
+
+## Escolhendo o modelo com menor AIC
+
+melhor_ARMA <- forecast::Arima(log_retornos,
+                                order = c(modelos[1,]$p,
+                                          modelos[1,]$d,
+                                          modelos[1,]$q)
+                                )
+melhor_ARMA
+
+## Utilizando a função auto.arima para comparação
+
+melhor_arma <- forecast::auto.arima(log_retornos)
+
+melhor_arma
+```
+
+O modelo aujstado usando a função forecast::arima indica a presença de 5 parametros autoregressivos (AR) e 4 médias móveis (MA). Além disso, o valor muito próximo de zero para a média do modelo sugere que não há um viés significativo na série. A próxima etapa para uma analise mais robusta é avaliar os residuos e aplicar testes para verificação de ruidos brancos.
+
+Para fins de comparação, foi ajustado o modelo também utilizando forecast::auto.arima(). Nesse caso o modelo indicado foi o ARMA(2,1), um modelo menos robustoque performa melhor nas métricas de comparaçao como AIC.
+
+Por esses motivos, seleciono o modelo ARMA(2,1)
+
+## Questão 02
+
+```{r garch, warning=FALSE, message=FALSE}
+
+residuos <- (melhor_arma$residuals)
+
+## ACF e PACF
+
+acf(residuos)
+pacf(residuos)
+
+## Teste de Ljung-Box
+
+Box.test(residuos^2, type = "Ljung-Box", lag = 5)
+
+```
+
+Rejeita-se a hipótese nula, ou seja, há variância temporal ao longo da série.
+
+```{r garch 2, warning=FALSE, message=TRUE}
+
+r_values <- 0:6
+s_values <- 0:0
+best_aic_garch <- Inf
+best_garch_model <- NULL
+
+
+for (r in r_values) {
+  for (s in s_values) {
+    spec <- ugarchspec(
+      variance.model = list(garchOrder = c(r, s)),
+      mean.model = list(armaOrder = c(0, 0)),
+      distribution.model = "norm"
+    )
+    possible_model <- tryCatch(
+      {
+        fit <- ugarchfit(spec, residuos)
+        list(model = fit, aic = infocriteria(fit)[1])
+      },
+      error = function(e) NULL
+    )
+    if (!is.null(possible_model) && possible_model$aic < best_aic_garch) {
+      best_aic_garch <- possible_model$aic
+      best_garch_model <- possible_model$model
+    }
+  }
+}
+best_garch_model
+```
+
+Este modelo é um GARCH(5,0), ou seja, ele modela a volatilidade em cinco passoe e não tem termos de média. Assume que os retornos seguem uma distribuição normal.
