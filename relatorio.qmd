@@ -1,0 +1,121 @@
+---
+title: "Análise de Testes de Raiz Unitária"
+author: "Beatriz Lima Silveira"
+format: pdf
+editor: visual
+---
+
+# Importação de dados
+
+```{r import data, warning=FALSE, message=FALSE}
+library(tseries)
+library(urca)
+library(readr)
+
+petro <- read.csv("data/d-petro95.00.dat", header=FALSE)
+
+ibv_cbond <- read.csv("data/m-ibv94.01.dat", header=TRUE, sep = "")
+
+ibov <- ibv_cbond$IBOV
+
+cbond <- ibv_cbond$CBOND
+```
+
+# Teste Aumentado de Dickey Fuller
+
+## Preços diários de ações da Petrobrás
+
+```{r plot petro, warning = FALSE, message=FALSE}
+ts.plot(petro)
+```
+
+O gráfico indica tendência.
+
+```{r adf trend petro, warning=FALSE, message=FALSE}
+
+adf_petro_trend <- ur.df(petro$V1, type="trend", selectlags="AIC")
+summary(adf_petro_trend)
+
+```
+
+Como -2.1121 > -3.41, não rejeitamos a hipótese nula de que a série possui uma raiz unitária (não estacionária). Tendência é significativa ao nível de 5% (p-valor = 0.0323).
+
+## Índice Bovespa
+
+```{r plot ibov, warning = FALSE, message=FALSE}
+ts.plot(ibov)
+```
+
+Tendência não é óbvia.
+
+```{r adf trend ibov, warning=FALSE, message=FALSE}
+adf_ibv_trend <- ur.df(ibov, type="trend", selectlags="AIC")
+summary(adf_ibv_trend)
+```
+
+Como na estatística ADF, -2.1899 > -3.45 (valor crítico a 5%), não rejeitamos a hipótese nula de que a série possui uma raiz unitária (não estacionária). Intercepto é significativo ao nível de significância de 5% e a tendência não é. Na estatística Phi2, que testa a presença conjunta de intercepto e tendência,como 1.8396 < 4.88, não rejeitamos a hipótese nula de que o intercepto e a tendência são conjuntamente não significativos. 
+Dado essas informações, um teste sem considerar tendência talvez seja mais adequado.
+
+```{r adf drift ibov, warning=FALSE, message=FALSE}
+adf_ibv_drift <- ur.df(ibov, type= "drift", selectlags="AIC")
+summary(adf_ibv_drift)
+```
+
+A estatística ADF (-2.345) é maior que o valor crítico a 5% (-2.89), então não rejeitamos a hipótese nula de que a série possui uma raiz unitária. Isso indica que a série não é estacionária. O intercepto é significativo (p-valor = 0.0259), indicando que a série flutua em torno de uma média não nula.
+
+## Juros do C-bond brasileiro
+
+```{r plot cbond, warning=FALSE, message=FALSE}
+ts.plot(cbond)
+```
+
+```{r cbond trend adf, warning=FALSE, message=FALSE}
+adf_cbond_trend <- ur.df(cbond, type="trend", selectlags="AIC")
+summary(adf_cbond_trend)
+```
+
+A estatística ADF, -2.2859 > -3.45 (valor crítico a 5%), não rejeitamos a hipótese nula de que a série possui uma raiz unitária (não estacionária).
+Não há indicios de tendência e o intecepto aparenta ser marginalmente significativo (10%).
+Dado essas informações, um teste sem considerar tendência talvez seja mais adequado.
+
+```{r cbond drift, warning=FALSE, message=FALSE}
+adf_cbond_drift <- ur.df(cbond, type = "drift", selectlags = "AIC")
+summary(adf_cbond_drift)
+```
+
+Com esse teste que considera apenas o intercepto, ele apresenta ser significativo ao nível de 5% (p-valor = 0.0255). Na estatística ADF, como -2.312 > -2.89 (valor crítico a 5%), não rejeitamos a hipótese nula de que a série possui uma raiz unitária (não estacionária).
+
+# Teste de Phillips Perron
+
+```{r petro pp, warning=FALSE, message=FALSE}
+pp_petro <- ur.pp(petro$V1, type="Z-alpha", model="constant", lags="short")
+summary(pp_petro)
+```
+
+A estatística de teste (-0.8508) é maior que os valores críticos. Portanto, não rejeitamos a hipótese nula de que a série possui uma raiz unitária.
+
+```{r ibov pp, warning=FALSE, message=FALSE}
+pp_ibv <- ur.pp(ibov, type="Z-alpha", model="constant", lags="short")
+summary(pp_ibv)
+```
+
+A estatística de teste (-10.2539) é menor que os valores críticos. Portanto, rejeitamos a hipótese nula de que a série possui uma raiz unitária.
+
+```{r cbond pp, warning=FALSE, message=FALSE}
+pp_cbond <- ur.pp(cbond, type="Z-alpha", model="constant", lags="short")
+summary(pp_cbond)
+```
+A estatística de teste (-11.2958) é menor que os valores críticos. Portanto, rejeitamos a hipótese nula de que a série possui uma raiz unitária.
+
+# Considerações finais
+
+O teste DF (e sua versão aumentada, o ADF) assume que os resíduos do modelo são não autocorrelacionados. O teste PP é não paramétrico, o que significa que ele não assume uma forma específica para a autocorrelação dos resíduos. O PP é mais robusto a problemas como autocorrelação e heterocedasticidade, mas pode ser menos preciso em amostras pequenas.
+
+
+
+
+
+
+
+
+
